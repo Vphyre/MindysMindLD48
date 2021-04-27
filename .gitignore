@@ -1,0 +1,8 @@
+.vs
+Library
+Temp
+*.apk
+Assembly-CSharp.csproj
+LudumDare48.sln
+/build
+/.vscode

@@ -34,6 +34,7 @@ public class CameraFollow : MonoBehaviour
         }
         float moveSpeed = rb.velocity.magnitude > speed ? rb.velocity.magnitude : speed;
         transform.position = Vector3.MoveTowards(transform.position, newPosition, moveSpeed * Time.deltaTime);
+        // transform.position = Vector3.MoveTowards(transform.position, newPosition, speed * Time.deltaTime);
     }
     private Vector3 calculateThreshold()
     {
@@ -45,7 +46,7 @@ public class CameraFollow : MonoBehaviour
     }
     private void OnDrawGizmos()
     {
-        Gizmos.color  = Color.white;
+        Gizmos.color  = Color.green;
         Vector2 border = calculateThreshold();
         Gizmos.DrawWireCube(transform.position, new Vector3(border.x * 2, border.y * 2, 1));
     }

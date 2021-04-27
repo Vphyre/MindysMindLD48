@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class CharacterBehaviour : MonoBehaviour
 {
@@ -30,6 +31,15 @@ public class CharacterBehaviour : MonoBehaviour
     public bool onGround = false;
     public float groundLength = 0.69f;
     public Vector3 colliderOffset;
+    
+    [Header("Health Status")]
+    public static float invencibleTime = 0;
+    public static bool dameged;
+    public static float enemyPosition = 0;
+    public static bool fallDamage = false;
+    public static bool canMove = true;
+    public static bool enemyJumpFlag = false;
+    private float deathTime = 1.5f;
 
     // Start is called before the first frame update
     void Start()
@@ -48,19 +58,38 @@ public class CharacterBehaviour : MonoBehaviour
         direction = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
     }
     void FixedUpdate()
-    {
-        MoveCharacter(direction.x);
-        if(jumpTimer > Time.time && onGround)
+    {   
+        if(canMove)
         {
-            Jump();
+            MoveCharacter(direction.x);
+
+            if(jumpTimer > Time.time && onGround)
+            {
+                Jump();
+            }
+            animator.SetBool("JumpFall", rb.velocity.y!=0f && !onGround);
+            JumpEnemy();
         }
         ModifyPhysics();
+        GetDamegeAndDeath();
+        
     }
     void MoveCharacter(float horizontal)
     {
         rb.AddForce(Vector2.right * horizontal * moveSpeed);
 
-        //animator.SetFloat("horizontal", Mathf.Abs(rb.velocity.x));
+        if(onGround)
+        {
+            animator.SetFloat("Speed", Mathf.Abs(rb.velocity.x));
+            if(Input.GetAxisRaw("Horizontal")==0)
+            {
+                animator.SetFloat("Speed", 0f);
+            }
+        }
+        else
+        {
+            animator.SetFloat("Speed", 0);
+        }
 
         if((horizontal>0 && !facingRight) || (horizontal<0 && facingRight ))
         {
@@ -71,13 +100,13 @@ public class CharacterBehaviour : MonoBehaviour
         {
             rb.velocity = new Vector2 (Mathf.Sign(rb.velocity.x) * maxSpeed, rb.velocity.y);
         }
+
     }
     void Jump()
     {
         rb.velocity = new Vector2 (rb.velocity.x,0);
         rb.AddForce(Vector2.up * jumpSpeed, ForceMode2D.Impulse);
         jumpTimer = 0;
-        // StartCoroutine(JumpSqueeze(0.5f, 1.2f, 0.1f));
     }
     void ModifyPhysics()
     {
@@ -113,26 +142,94 @@ public class CharacterBehaviour : MonoBehaviour
         facingRight =!facingRight;
         transform.rotation = Quaternion.Euler(0, facingRight ? 0 : 180,0);
     }
-    // IEnumerator JumpSqueeze(float xSqueeze, float ySqueeze, float seconds)
-    // {
-    //     Vector3 originalSize = Vector3.one;
-    //     Vector3 newSize = new Vector3 (xSqueeze, ySqueeze, originalSize.z);
-    //     float t = 0f;
-    //     while (t <= 1.0)
-    //     {
-    //         t += jumpTimer.deltaTime / seconds;
-    //         characterHolder.transform.localScale = Vector3.Lerp (originalSize, newSize, t);
-    //         yield return null;
-    //     }
-    //     t = 0f;
-    //     while (t <= 1.0)
-    //     {
-    //         t+=jumpTimer.deltaTime / seconds;
-    //         characterHolder.transform.localScale = Vector3.Lerp (newSize, originalSize, t);
-    //         yield return null;
-    //     }
+    
+    private void GetDamegeAndDeath()
+    {
+        if(dameged && invencibleTime<=0)
+        {
+            if(fallDamage)
+            {
 
-    // }
+            }
+            else
+            {
+                KnockBack();
+                invencibleTime = 2f;
+                PlayerStatus.hpCurrent--;
+                dameged = false;
+                print("Tomou dano "+PlayerStatus.hpCurrent);
+            }
+            
+        }
+        else if(invencibleTime>0)
+        {
+            InvokeRepeating("BlinkSprite", 0.5f, 0.2f);
+            if(invencibleTime<0.4f)
+            {
+                canMove = true;
+            }     
+        }
+        else
+        {
+            CancelInvoke();
+            transform.gameObject.GetComponent<SpriteRenderer>().enabled = true;
+        }
+        invencibleTime -= Time.deltaTime;
+
+        if(PlayerStatus.hpCurrent<=0)
+        {
+            canMove = false;
+            animator.SetBool("Death", true);
+            deathTime -= Time.deltaTime;
+            if(deathTime<=0)
+            {
+                PlayerStatus.previousScene = SceneManager.GetActiveScene().name;
+                if(PlayerStatus.previousScene=="Phase1")
+                {
+                    PlayerStatus.mindPoints = 0;
+                }
+                else if(PlayerStatus.previousScene=="Phase2")
+                {
+                    PlayerStatus.mindPoints = PlayerStatus.mpPhase2;
+                }
+                else if(PlayerStatus.previousScene=="Phase3")
+                {
+                    PlayerStatus.mindPoints = PlayerStatus.mpPhase3;
+                }
+                print(PlayerStatus.previousScene);
+                SceneManager.LoadScene("GameOver2");
+            }
+            //fazer possíveis alterações no reconhecimento de inimigos
+        }
+    }
+    private void KnockBack()
+    {
+        if(transform.position.x>enemyPosition)  
+        {
+            transform.gameObject.GetComponent<Rigidbody2D>().AddForce(new Vector2 (900f, 500f));
+            canMove = false;
+        }
+        else
+        {
+            transform.gameObject.GetComponent<Rigidbody2D>().AddForce(new Vector2 (-900f, 500f));
+            canMove = false;
+        }
+        enemyPosition = 0f;
+    }
+    private void BlinkSprite()
+    {
+        transform.gameObject.GetComponent<SpriteRenderer>().enabled = !transform.gameObject.GetComponent<SpriteRenderer>().enabled;
+    }
+    private void JumpEnemy()
+    {
+        if(enemyJumpFlag)
+        {
+            // transform.gameObject.GetComponent<Rigidbody2D>().AddForce(new Vector2 (0f, 800f));
+            Jump();
+            enemyJumpFlag = false;
+            print("Pulou na cabeça");
+        }
+    }
     private void OnDrawGizmos()
     {
         Gizmos.color  = Color.white;
